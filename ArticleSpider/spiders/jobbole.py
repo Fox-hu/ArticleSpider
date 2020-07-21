@@ -5,6 +5,9 @@ import re
 import json
 from scrapy import Request
 
+from ArticleSpider.items import JobboleArticleItem
+from ArticleSpider.utils import common
+
 
 class JobboleSpider(scrapy.Spider):
     name = 'jobbole'
@@ -23,7 +26,8 @@ class JobboleSpider(scrapy.Spider):
             image_url = post_node.css('.entry_summary img::attr(href)').extract_first("")
             post_url = post_node.css('.news_entry a::attr(href)').extract_first("")
             # 有些是带域名的 有些是不带的 使用parse 如果url不带域名 则带上域名
-            yield Request(url=parse.urljoin(response.url, post_url), meta={"font_image_url": image_url},
+            # 将image_url作为meta传递给parse_detail方法
+            yield Request(url=parse.urljoin(response.url, post_url), meta={"front_image_url": image_url},
                           callback=self.parse_detail)
 
         # 获取下一页的url并交给scrapy进行下载
@@ -35,21 +39,41 @@ class JobboleSpider(scrapy.Spider):
     def parse_detail(self, response):
         match_re = re.match(".*?(\d+)", response.url)
         if match_re:
+            # 正则表达式中的第一项符合要求的
+            post_id = match_re.group(1)
+            article_item = JobboleArticleItem()
             title = response.css("#news_title a::text").extract_first("")
-            create_data = response.css("#news_info .time::text").extract_first("")
+            create_date = response.css("#news_info .time::text").extract_first("")
+            match_re = re.match(".*?(\d+.*)", create_date)
+            if match_re:
+                create_date = match_re.group(1)
             content = response.css("#news_content").extract()[0]
             tag_list = response.css(".news_tags a::text").extract()
             tags = ",".join(tag_list)
 
+            article_item["title"] = title
+            article_item["create_date"] = create_date
+            article_item["content"] = content
+            article_item["tags"] = tags
+            article_item["url"] = response.url
             # 正则表达式中的第一项符合要求的
-            post_id = match_re.group(1)
+            article_item["front_image_url"] = response.meta.get("front_image_url", "")
 
+            # 将article_item作为meta传递给parse_news_info方法
             yield Request(url=parse.urljoin(response.url, "/NewsAjax/GetAjaxNewsInfo?contentId={}".format(post_id)),
-                          callback=self.parse_news_info)
+                          meta={"article_item": article_item}, callback=self.parse_news_info)
 
     def parse_news_info(self, response):
         j_data = json.loads(response.text)
+        article_item = response.meta.get("article_item", "")
         praise_num = j_data["DiggCount"]
         fav_num = j_data["TotalView"]
         comment_num = j_data["CommentCount"]
-        pass
+
+        article_item["praise_nums"] = praise_num
+        article_item["fav_nums"] = fav_num
+        article_item["comment_nums"] = comment_num
+
+        article_item["url_object_id"] = common.get_md5(article_item["url"])
+
+        yield article_item
