@@ -21,9 +21,9 @@ class JobboleSpider(scrapy.Spider):
 
         # 获取新闻列表页中的新闻url并交给scrapy进行下载后调用相应的解析方法
         # 在调试时 只用取第一个就行 避免多次请求导致ip被封 后面将[:1]去掉
-        post_nodes = response.css('#news_list .news_block')[:1]
+        post_nodes = response.css('#news_list .news_block')[:3]
         for post_node in post_nodes:
-            image_url = post_node.css('.entry_summary img::attr(href)').extract_first("")
+            image_url = post_node.css('.entry_summary a img::attr(src)').extract_first("")
             post_url = post_node.css('.news_entry a::attr(href)').extract_first("")
             # 有些是带域名的 有些是不带的 使用parse 如果url不带域名 则带上域名
             # 将image_url作为meta传递给parse_detail方法
@@ -31,10 +31,10 @@ class JobboleSpider(scrapy.Spider):
                           callback=self.parse_detail)
 
         # 获取下一页的url并交给scrapy进行下载
-        next_url = response.css("div.pager a:last-child::text").extract_first("")
-        if next_url == "Next >":
-            next_url = response.css("div.pager a:last-child::attr(href)").extract_first("")
-            yield Request(url=parse.urljoin(response.url, next_url), callback=self.parse)
+        # next_url = response.css("div.pager a:last-child::text").extract_first("")
+        # if next_url == "Next >":
+        #     next_url = response.css("div.pager a:last-child::attr(href)").extract_first("")
+        #     yield Request(url=parse.urljoin(response.url, next_url), callback=self.parse)
 
     def parse_detail(self, response):
         match_re = re.match(".*?(\d+)", response.url)
@@ -56,8 +56,8 @@ class JobboleSpider(scrapy.Spider):
             article_item["content"] = content
             article_item["tags"] = tags
             article_item["url"] = response.url
-            # 正则表达式中的第一项符合要求的
-            article_item["front_image_url"] = response.meta.get("front_image_url", "")
+            # 传递给下载的url一定要是以列表的形式
+            article_item["front_image_url"] = [response.meta.get("front_image_url", " ")]
 
             # 将article_item作为meta传递给parse_news_info方法
             yield Request(url=parse.urljoin(response.url, "/NewsAjax/GetAjaxNewsInfo?contentId={}".format(post_id)),
@@ -73,7 +73,6 @@ class JobboleSpider(scrapy.Spider):
         article_item["praise_nums"] = praise_num
         article_item["fav_nums"] = fav_num
         article_item["comment_nums"] = comment_num
-
         article_item["url_object_id"] = common.get_md5(article_item["url"])
 
         yield article_item
