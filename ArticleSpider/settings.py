@@ -66,7 +66,7 @@ ROBOTSTXT_OBEY = False
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'ArticleSpider.pipelines.ArticlespiderPipeline': 300,
-    'scrapy.pipelines.images.ImagesPipeline': 1
+    'ArticleSpider.pipelines.ArticleImagePipeline': 1
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -92,5 +92,7 @@ ITEM_PIPELINES = {
 
 # 设置下载的url类型名称
 IMAGES_URLS_FIELD = "front_image_url"
+
+# 设置下载图片的路径
 project_dir = os.path.dirname(os.path.abspath(__file__))
 IMAGES_STORE = os.path.join(project_dir, 'images')
