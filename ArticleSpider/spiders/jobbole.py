@@ -21,7 +21,7 @@ class JobboleSpider(scrapy.Spider):
 
         # 获取新闻列表页中的新闻url并交给scrapy进行下载后调用相应的解析方法
         # 在调试时 只用取第一个就行 避免多次请求导致ip被封 后面将[:1]去掉
-        post_nodes = response.css('#news_list .news_block')[:3]
+        post_nodes = response.css('#news_list .news_block')[1:3]
         for post_node in post_nodes:
             image_url = post_node.css('.entry_summary a img::attr(src)').extract_first("")
             post_url = post_node.css('.news_entry a::attr(href)').extract_first("")
@@ -57,7 +57,10 @@ class JobboleSpider(scrapy.Spider):
             article_item["tags"] = tags
             article_item["url"] = response.url
             # 传递给下载的url一定要是以列表的形式
-            article_item["front_image_url"] = [response.meta.get("front_image_url", " ")]
+            if response.meta.get("front_image_url", " "):
+                article_item["front_image_url"] = [response.meta.get("front_image_url", "")]
+            else:
+                article_item["front_image_url"] = []
 
             # 将article_item作为meta传递给parse_news_info方法
             yield Request(url=parse.urljoin(response.url, "/NewsAjax/GetAjaxNewsInfo?contentId={}".format(post_id)),
